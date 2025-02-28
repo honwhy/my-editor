@@ -61,7 +61,7 @@ const handleInput = (event: Event) => {
 
 const handleBlur = (event: Event) => {
   const target = event.target as HTMLDivElement;
-  emit('blur', target.innerHTML);
+  emit('update:modelValue', target.innerHTML);
 };
 
 const toggleEmojiPicker = () => {
@@ -127,7 +127,7 @@ const onEmojiSelect = (emoji: any) => {
   }
 
   // 更新 modelValue
-  emit('update:modelValue', div.innerHTML);
+  // emit('update:modelValue', div.innerHTML);
   showEmojiPicker.value = false;
 };
 </script>
