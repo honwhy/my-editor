@@ -6,6 +6,7 @@
         contenteditable="true"
         placeholder="请输入内容..."
         @blur="handleBlur"
+        @paste="handlePaste"
         :innerHTML="modelValue"
       ></div>
       <div class="buttons">
@@ -203,6 +204,39 @@ const onEmojiSelect = (emoji: any) => {
   // 更新 modelValue
   // emit('update:modelValue', div.innerHTML);
   showEmojiPicker.value = false;
+};
+const handlePaste = (event: ClipboardEvent) => {
+  // 阻止默认粘贴行为
+  event.preventDefault();
+  
+  // 获取纯文本内容
+  const text = event.clipboardData?.getData('text/plain') || '';
+  
+  // 将纯文本插入到当前光标位置
+  if (lastRange.value) {
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(lastRange.value);
+      
+      // 替换选中内容或插入纯文本
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const textNode = document.createTextNode(text);
+      range.insertNode(textNode);
+      
+      // 重新设置选区范围到插入的文本后面
+      const newRange = document.createRange();
+      newRange.setStartAfter(textNode);
+      newRange.setEndAfter(textNode);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      lastRange.value = newRange.cloneRange(); // 更新保存的选区
+      
+      // 更新 modelValue
+      // emitUpdate();
+    }
+  }
 };
 </script>
 
