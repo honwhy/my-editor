@@ -4,6 +4,7 @@
       <div
         class="editable-div"
         contenteditable="true"
+        placeholder="请输入内容..."
         @blur="handleBlur"
         :innerHTML="modelValue"
       ></div>
@@ -216,7 +217,6 @@ const onEmojiSelect = (emoji: any) => {
   gap: 8px;
   align-items: flex-start;
 }
-
 .editable-div {
   flex: 1;
   border: 1px solid #dcdfe6;
@@ -228,12 +228,19 @@ const onEmojiSelect = (emoji: any) => {
   outline: none;
   line-height: 1.5;
   font-size: 14px;
+  position: relative;
+}
+
+.editable-div:empty::before {
+  content: attr(placeholder);
+  color: #a8abb2;
+  position: absolute;
+  pointer-events: none;
 }
 
 .editable-div:focus {
   border-color: #409eff;
 }
-
 .emoji-button {
   padding: 5px 10px;
   border: 1px solid #dcdfe6;
@@ -242,11 +249,9 @@ const onEmojiSelect = (emoji: any) => {
   cursor: pointer;
   font-size: 16px;
 }
-
 .emoji-button:hover {
   background: #f5f7fa;
 }
-
 .emoji-picker-container {
   position: absolute;
   right: 0;
@@ -254,14 +259,12 @@ const onEmojiSelect = (emoji: any) => {
   margin-top: 8px;
   z-index: 1000;
 }
-
 .buttons {
   display: flex;
   flex-direction: column;
   gap: 8px;
   position: relative;
 }
-
 .emoji-button,
 .tag-button {
   padding: 5px 10px;
@@ -272,12 +275,10 @@ const onEmojiSelect = (emoji: any) => {
   font-size: 14px;
   width: 100%;
 }
-
 .emoji-button:hover,
 .tag-button:hover {
   background: #f5f7fa;
 }
-
 .tag-dropdown {
   position: absolute;
   right: 0;
@@ -290,16 +291,13 @@ const onEmojiSelect = (emoji: any) => {
   z-index: 1000;
   min-width: 100px;
 }
-
 .tag-item {
   padding: 8px 12px;
   cursor: pointer;
 }
-
 .tag-item:hover {
   background: #f5f7fa;
 }
-
 :deep(.tag) {
   display: inline-block;
   height: 22px;
@@ -312,7 +310,6 @@ const onEmojiSelect = (emoji: any) => {
   position: relative;
   vertical-align: middle;
 }
-
 :deep(.tag::before) {
   content: attr(data-value);
   position: absolute;
@@ -327,7 +324,6 @@ const onEmojiSelect = (emoji: any) => {
   font-size: 12px;
   white-space: nowrap;
 }
-
 /* 移除 hr 默认样式 */
 :deep(.tag:not([type="text"])) {
   border: none;
