@@ -7,7 +7,15 @@
         @blur="handleBlur"
         :innerHTML="modelValue"
       ></div>
-      <button class="emoji-button" @click="toggleEmojiPicker">😊</button>
+      <div class="buttons">
+        <button class="emoji-button" @click="toggleEmojiPicker">😊</button>
+        <button class="tag-button" @click="toggleTagDropdown">插入Tag</button>
+        <div v-show="showTagDropdown" class="tag-dropdown">
+          <div class="tag-item" @click="insertTag('连接1')">连接1</div>
+          <div class="tag-item" @click="insertTag('连接2')">连接2</div>
+          <div class="tag-item" @click="insertTag('连接3')">连接3</div>
+        </div>
+      </div>
     </div>
     <div v-show="showEmojiPicker" class="emoji-picker-container" ref="pickerContainer"></div>
   </div>
@@ -17,6 +25,7 @@
 import data from '@emoji-mart/data'
 import { Picker } from 'emoji-mart'
 import { ref, watch, onMounted, onUnmounted } from 'vue'
+const showTagDropdown = ref(false);
 
 interface Props {
   modelValue: string;
@@ -54,8 +63,9 @@ watch(showEmojiPicker, async (newValue) => {
     pickerContainer.value.innerHTML = ''
   }
 });
-const handleInput = (event: Event) => {
-  const target = event.target as HTMLDivElement;
+const emitUpdate = () => {
+  const target = document.querySelector('.editable-div');
+  if (!target) return;
   emit('update:modelValue', target.innerHTML);
 };
 
@@ -66,6 +76,9 @@ const handleBlur = (event: Event) => {
 
 const toggleEmojiPicker = () => {
   showEmojiPicker.value = !showEmojiPicker.value;
+  if (showEmojiPicker.value) {
+    emitUpdate()
+  }
 };
 const handleSelectionChange = () => {
   const sel = window.getSelection();
@@ -83,7 +96,67 @@ const handleSelectionChange = () => {
     }
   }
 };
+const toggleTagDropdown = () => {
+  showTagDropdown.value = !showTagDropdown.value;
+  // 关闭emoji选择器
+  if (showTagDropdown.value) {
+    showEmojiPicker.value = false;
+  }
+  if (showTagDropdown.value) {
+    emitUpdate()
+  }
+};
 
+const insertTag = (tagName: string) => {
+  const div = document.querySelector('.editable-div') as HTMLDivElement;
+  if (!div) return;
+
+  div.focus(); // 先获取焦点
+
+  // 创建tag元素
+  const tagElement = document.createElement('hr');
+  tagElement.className = 'tag';
+  tagElement.setAttribute('data-value', tagName);
+  tagElement.contentEditable = 'false';
+  // 如果有之前保存的选区，恢复它
+  if (lastRange.value) {
+    const sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(lastRange.value);
+      
+      // 替换选中内容或插入tag
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(tagElement);
+    
+      
+      // 重新设置选区范围到插入的tag后面
+      const newRange = document.createRange();
+      newRange.setStartAfter(tagElement);
+      newRange.setEndAfter(tagElement);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      lastRange.value = newRange.cloneRange(); // 更新保存的选区
+    }
+  } else {
+    // 如果没有选区，就追加到末尾
+    div.appendChild(tagElement);
+    
+    // 设置光标到末尾
+    const range = document.createRange();
+    const sel = window.getSelection();
+    range.setStartAfter(tagElement);
+    range.setEndAfter(tagElement);
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    lastRange.value = range.cloneRange(); // 更新保存的选区
+  }
+  showTagDropdown.value = false;
+};
+
+// 在onEmojiSelect方法最后添加更新modelValue的代码
+// 修改onEmojiSelect方法末尾
 const onEmojiSelect = (emoji: any) => {
   const div = document.querySelector('.editable-div') as HTMLDivElement;
   if (!div) return;
@@ -180,5 +253,86 @@ const onEmojiSelect = (emoji: any) => {
   top: 100%;
   margin-top: 8px;
   z-index: 1000;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.emoji-button,
+.tag-button {
+  padding: 5px 10px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  width: 100%;
+}
+
+.emoji-button:hover,
+.tag-button:hover {
+  background: #f5f7fa;
+}
+
+.tag-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  background: white;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  min-width: 100px;
+}
+
+.tag-item {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.tag-item:hover {
+  background: #f5f7fa;
+}
+
+:deep(.tag) {
+  display: inline-block;
+  height: 22px;
+  width: auto;
+  min-width: 60px;
+  background-color: #ecf5ff;
+  border: 1px solid #d9ecff;
+  border-radius: 4px;
+  margin: 0 4px;
+  position: relative;
+  vertical-align: middle;
+}
+
+:deep(.tag::before) {
+  content: attr(data-value);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #409eff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* 移除 hr 默认样式 */
+:deep(.tag:not([type="text"])) {
+  border: none;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
 }
 </style>
