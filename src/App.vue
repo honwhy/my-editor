@@ -11,7 +11,7 @@ const onBlur = (value: string) => {
 
 <template>
   <div class="input-container">
-    <CustomInput v-model="content" @blur="onBlur" />
+    <CustomInput v-model="content" @blur="onBlur" :maxlength="100" :show-word-limit="true" />
     <p>内容：{{ content }}</p>
   </div>
 </template>

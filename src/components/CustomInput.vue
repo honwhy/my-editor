@@ -6,8 +6,12 @@
         contenteditable="true"
         placeholder="请输入内容..."
         @blur="handleBlur"
+        @input="handleInput"
         @paste="handlePaste"
         :innerHTML="modelValue"
+        :class="{'hide-word-limit': !showWordLimit}"
+        :data-length="textLength"
+        :data-maxlength="maxlength"
       ></div>
       <div class="buttons">
         <button class="emoji-button" @click="toggleEmojiPicker">😊</button>
@@ -31,6 +35,8 @@ const showTagDropdown = ref(false);
 
 interface Props {
   modelValue: string;
+  maxlength: number;
+  showWordLimit: boolean;
 }
 
 interface Emits {
@@ -44,10 +50,20 @@ const showEmojiPicker = ref(false);
 const pickerContainer = ref<HTMLDivElement | null>(null);
 const selection = ref<Selection | null>(null);
 const lastRange = ref<Range | null>(null);
+const textLength = ref(0); // 添加文本长度计数
 
+// 计算纯文本长度的函数
+const calculateTextLength = (html: string): number => {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  let text = tempDiv.textContent || '';
+  const tags = tempDiv.querySelectorAll('.tag');
+  return text.length + tags.length * 10;
+};
 // 添加 selectionchange 事件监听
 onMounted(() => {
   document.addEventListener('selectionchange', handleSelectionChange);
+  textLength.value = calculateTextLength(props.modelValue);
 });
 
 onUnmounted(() => {
@@ -65,6 +81,29 @@ watch(showEmojiPicker, async (newValue) => {
     pickerContainer.value.innerHTML = ''
   }
 });
+// 处理输入事件
+const handleInput = (event: Event) => {
+  const target = event.target as HTMLDivElement;
+  const newLength = calculateTextLength(target.innerHTML);
+  
+  // if (props.maxlength > 0 && newLength > props.maxlength) {
+  //   if (lastRange.value) {
+  //     const sel = window.getSelection();
+  //     if (sel) {
+  //       event.preventDefault();
+  //       target.innerHTML = props.modelValue;
+  //       setTimeout(() => {
+  //         sel.removeAllRanges();
+  //         sel.addRange(lastRange.value!);
+  //       }, 0);
+  //       return;
+  //     }
+  //   }
+  // }
+  
+  textLength.value = newLength;
+  // emit('update:modelValue', target.innerHTML);
+};
 const emitUpdate = () => {
   const target = document.querySelector('.editable-div');
   if (!target) return;
@@ -112,7 +151,12 @@ const toggleTagDropdown = () => {
 const insertTag = (tagName: string) => {
   const div = document.querySelector('.editable-div') as HTMLDivElement;
   if (!div) return;
-
+  const currentLength = textLength.value;
+  const maxLength = props.maxlength;
+  // 检查粘贴后是否会超出字符限制 tag 表示的长度设定为10
+  if (maxLength > 0 && currentLength + 10 > maxLength) {
+    return;
+  }
   div.focus(); // 先获取焦点
 
   // 创建tag元素
@@ -154,6 +198,9 @@ const insertTag = (tagName: string) => {
     sel?.addRange(range);
     lastRange.value = range.cloneRange(); // 更新保存的选区
   }
+
+  // 更新 textLength 和 modelValue
+  textLength.value = calculateTextLength(div.innerHTML);
   showTagDropdown.value = false;
 };
 
@@ -162,7 +209,12 @@ const insertTag = (tagName: string) => {
 const onEmojiSelect = (emoji: any) => {
   const div = document.querySelector('.editable-div') as HTMLDivElement;
   if (!div) return;
-
+  const currentLength = textLength.value;
+  const maxLength = props.maxlength;
+  // 检查粘贴后是否会超出字符限制
+  if (maxLength > 0 && currentLength + emoji.native.length > maxLength) {
+    return;
+  }
   div.focus(); // 先获取焦点
 
   // 如果有之前保存的选区，恢复它
@@ -201,6 +253,8 @@ const onEmojiSelect = (emoji: any) => {
     lastRange.value = range.cloneRange(); // 更新保存的选区
   }
 
+  // 更新 textLength 和 modelValue
+  textLength.value = calculateTextLength(div.innerHTML);
   // 更新 modelValue
   // emit('update:modelValue', div.innerHTML);
   showEmojiPicker.value = false;
@@ -208,33 +262,70 @@ const onEmojiSelect = (emoji: any) => {
 const handlePaste = (event: ClipboardEvent) => {
   // 阻止默认粘贴行为
   event.preventDefault();
-  
+  const div = document.querySelector('.editable-div') as HTMLDivElement;
+  if (!div) return;
   // 获取纯文本内容
   const text = event.clipboardData?.getData('text/plain') || '';
-  
-  // 将纯文本插入到当前光标位置
-  if (lastRange.value) {
-    const sel = window.getSelection();
-    if (sel) {
-      sel.removeAllRanges();
-      sel.addRange(lastRange.value);
-      
-      // 替换选中内容或插入纯文本
-      const range = sel.getRangeAt(0);
-      range.deleteContents();
-      const textNode = document.createTextNode(text);
-      range.insertNode(textNode);
-      
-      // 重新设置选区范围到插入的文本后面
-      const newRange = document.createRange();
-      newRange.setStartAfter(textNode);
-      newRange.setEndAfter(textNode);
-      sel.removeAllRanges();
-      sel.addRange(newRange);
-      lastRange.value = newRange.cloneRange(); // 更新保存的选区
-      
-      // 更新 modelValue
-      // emitUpdate();
+  const currentLength = textLength.value;
+  const maxLength = props.maxlength;
+  // 检查粘贴后是否会超出字符限制
+  if (maxLength > 0 && currentLength + text.length > maxLength) {
+    // 如果会超出，只粘贴能容纳的部分
+    const allowedText = text.substring(0, maxLength - currentLength);
+    if (allowedText.length === 0) return; // 如果已经达到最大长度，不粘贴
+
+    // 将允许的文本插入到当前光标位置
+    if (lastRange.value) {
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(lastRange.value);
+        
+        // 替换选中内容或插入允许的文本
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const textNode = document.createTextNode(allowedText);
+        range.insertNode(textNode);
+        
+        // 重新设置选区范围到插入的文本后面
+        const newRange = document.createRange();
+        newRange.setStartAfter(textNode);
+        newRange.setEndAfter(textNode);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        lastRange.value = newRange.cloneRange(); // 更新保存的选区
+        
+        // 更新 textLength 和 modelValue
+        textLength.value = calculateTextLength(div.innerHTML);
+        // emit('update:modelValue', div.innerHTML);
+      }
+    }
+  } else {
+    // 将纯文本插入到当前光标位置
+    if (lastRange.value) {
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(lastRange.value);
+        
+        // 替换选中内容或插入纯文本
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const textNode = document.createTextNode(text);
+        range.insertNode(textNode);
+        
+        // 重新设置选区范围到插入的文本后面
+        const newRange = document.createRange();
+        newRange.setStartAfter(textNode);
+        newRange.setEndAfter(textNode);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        lastRange.value = newRange.cloneRange(); // 更新保存的选区
+        
+        // 更新 textLength 和 modelValue
+        textLength.value = calculateTextLength(div.innerHTML);
+        // emit('update:modelValue', div.innerHTML);
+      }
     }
   }
 };
@@ -274,6 +365,19 @@ const handlePaste = (event: ClipboardEvent) => {
 
 .editable-div:focus {
   border-color: #409eff;
+}
+.editable-div::after {
+  content: attr(data-length) '/' attr(data-maxlength);
+  display: attr(data-show-limit);
+  text-align: right;
+  font-size: 12px;
+  color: #a8abb2;
+  position: absolute;
+  bottom: 0;
+  right: 8px;
+}
+.hide-word-limit::after {
+  display: none;
 }
 .emoji-button {
   padding: 5px 10px;
